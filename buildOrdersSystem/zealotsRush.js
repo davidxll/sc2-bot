@@ -15,7 +15,7 @@ const wishList = [
   [24, build(FORGE)],
   [25, build(CYBERNETICSCORE)],
   [34, build(ROBOTICSFACILITY)],
-  [34, build(GATEWAY, 7)],
+  [34, build(GATEWAY, 3)],
   [37, build(ROBOTICSBAY)],
   [40, build(ASSIMILATOR)],
   [70, build(NEXUS)],
@@ -53,11 +53,6 @@ async function onUnitFinished({ resources }, newBuilding) {
 
 async function onUnitCreated({ resources }, newUnit) {
   const { actions, units, map } = resources.get();
-  const bases = units.getBases(Alliance.SELF);
-  const workersNumber = units.getWorkers().length
-  const noMoreWorkersPls = (bases.length * 18) > workersNumber
-  
-  console.log({ basesLength: bases.length, workersNumber, noMoreWorkersPls })
   
   // if the unit is a probe...
   if (newUnit.isWorker()) {
@@ -71,47 +66,41 @@ async function onUnitCreated({ resources }, newUnit) {
      * a good enough default we can use for now :) */
     return actions.attackMove(newUnit, map.getCombatRally());
   }
-
+  const bases = units.getBases(Alliance.SELF);
+  const workersNumber = units.getWorkers().length
+  const noMoreWorkersPls = workersNumber > (bases.length * 20)
+  this.setState({ noMoreWorkersPls });
 }
 
 async function onStep({ agent, data, resources }) {
   const { units, actions, map } = resources.get();
-  // const stepActions = []
-
-  // if (this.state.buildCompleted) {
+  
   // only get idle units, so we know how many are in waiting
   const idleCombatUnits = units.getCombatUnits().filter(u => u.noQueue);
-
   if (idleCombatUnits.length > this.state.armySize) {
     // add to our army size, so each attack is slightly larger
     this.setState({ armySize: this.state.armySize + 4 });
     const [enemyMain, enemyNat] = map.getExpansions(Alliance.ENEMY);
-
+    
     return Promise.all([enemyNat, enemyMain].map((expansion) => {
-      console.log('Attack!!!')
+      console.log('Attack!!')
       return actions.attackMove(idleCombatUnits, expansion.townhallPosition, true);
     }));
   }
 
-  // const bases = units.getBases(Alliance.SELF);
-  // const workersNumber = units.getWorkers().length
-  // const noMoreWorkersPls = workersNumber > (bases.length * 18)
-
-  // bases.forEach(base => {
-  //   if (base.inProgress(PROBE) && noMoreWorkersPls) {
-  //     console.log('CANCEL, Beach!')
-  //     stepActions.push(actions.do(CANCEL_LAST, base))
-  //   }
-  // })
-
+  // back to work, beaches!
   const idles = units.getIdleWorkers()
   if (idles.length > 0) {
+    console.log('Latigazo!!')
     return idles.map(unit => actions.gather(unit))
   }
 
-  // if (stepActions.length > 0) {
-  //   return Promise.all(stepActions)
-  // }
+  // Why tho T.T
+  if (this.state.noMoreWorkersPls) {
+    console.log('CANCEL, Beach!')
+    const bases = units.getBases(Alliance.SELF);
+    return Promise.all(bases.map(base => actions.do(CANCEL_LAST, base)))
+  }
 }
 
 async function onUpgradeComplete({ resources }, upgrade) {

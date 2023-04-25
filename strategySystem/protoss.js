@@ -54,8 +54,8 @@ async function onStep({ agent, data, resources }) {
       console.log('training Immortal')
     }
   }
+
   if (idleGateway) {
-    console.log('Idel Gayway')
     if (agent.canAfford(STALKER) && hasCyberneticCore) {
       actions.train(STALKER, idleGateway);
       console.log('training Stalker')
@@ -70,16 +70,16 @@ async function onUnitCreated({ resources }, newUnit) {
   // add `map` to the resources we're getting
   const { actions, map, units } = resources.get();
 
-  // const nexuses = units.getById(NEXUS); // nexus.energy
-  // const busyGW = units.getById(GATEWAY, { noQueue: false, buildProgress: 1 });
+  const nexuses = units.getById(NEXUS); // nexus.energy
+  const busyGW = units.getById(GATEWAY, { noQueue: false, buildProgress: 1 });
   
-  // nexuses.forEach(nexus => {
-  //   if (busyGW.length > 0 && nexus.abilityAvailable(EFFECT_CHRONOBOOSTENERGYCOST)) {
-  //     const gatewayToBoost = busyGW[Math.floor(Math.random()*busyGW.length)]
-  //     actions.do(EFFECT_CHRONOBOOSTENERGYCOST, nexus, {target: gatewayToBoost})
-  //     console.log('doing chrono boosty :D ', )
-  //   }
-  // })
+  nexuses.forEach(nexus => {
+    if (busyGW.length > 0 && nexus.abilityAvailable(EFFECT_CHRONOBOOSTENERGYCOST)) {
+      const gatewayToBoost = busyGW[Math.floor(Math.random()*busyGW.length)]
+      actions.do(EFFECT_CHRONOBOOSTENERGYCOST, nexus, {target: gatewayToBoost})
+      console.log('doing chrono boosty :D ')
+    }
+  })
 }
 
 async function onUpgradeComplete({ resources }, newUpgrade) {
