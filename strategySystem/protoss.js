@@ -29,10 +29,12 @@ const buildOrder = [
 const defaultOptions = {
   state: {
       targetMoney: 0,
-      seekAndDestroy: false,
-      fullRetaliation: false,
+      // seekAndDestroy: false,
+      // fullRetaliation: false,
   },
 }
+
+// const enemyMainPos = {}
 
 const getNumeros = ({minerals, vespene, foodCap, foodUsed, foodArmy, foodWorkers, idleWorkerCount, armyCount, warpGateCount, larvaCount}) => {
   return { minerals, vespene, foodCap, foodUsed, foodArmy, foodWorkers, idleWorkerCount, armyCount, warpGateCount, larvaCount }
@@ -49,8 +51,6 @@ async function onUnitFinished({ resources }, newBuilding) {
 
 async function onGameStart({ resources }) { 
   console.log(`onGameStart in protoss`)
-  // Label enemy main
-  resources.get().map.getExpansions(Alliance.ENEMY)[0].labels.set('allYourBase', true)
 }
 
 async function onStep({ agent, data, resources }) {
@@ -67,49 +67,74 @@ async function onStep({ agent, data, resources }) {
   }
 
   if(idleRoboticFac && spaceLeft) {
-    if (canTrain(COLOSSUS, agent) && spaceLeft >= 5) {
-      actions.train(COLOSSUS, idleRoboticFac)
-      console.log('training Colossus')
-    }
-    else if (canTrain(IMMORTAL, agent) && spaceLeft >= 7) {
-      actions.train(IMMORTAL, idleRoboticFac)
-      console.log('training Immortal')
-    }
-  }
-
-  if (idleGateway && spaceLeft >= 3) {
-    if (canTrain(STALKER, agent)) {
-      actions.train(STALKER, idleGateway);
-      console.log('training Stalker')
-    } else if (canTrain(ZEALOT, agent)) {
-      actions.train(ZEALOT, idleGateway);
-      console.log('training Zealot')
+    try {
+      if (canTrain(COLOSSUS, agent) && spaceLeft >= 8) {
+        actions.train(COLOSSUS, idleRoboticFac)
+        console.log('training Colossus')
+      }
+      else if (canTrain(IMMORTAL, agent) && spaceLeft >= 6) {
+        actions.train(IMMORTAL, idleRoboticFac)
+        console.log('training Immortal')
+      }
+    } catch (err) {
+      console.log('that fucking prick ', err.message)
+      return undefined
     }
   }
 
-  if (this.state.seekAndDestroy) {
-    const expansions = map.getExpansions()
-    console.log(`Watch out! ${expansions.length}`)
+  if (idleGateway && spaceLeft >= 4) {
+    try {
+      if (canTrain(STALKER, agent)) {
+        actions.train(STALKER, idleGateway);
+        console.log('training Stalker')
+      } else if (canTrain(ZEALOT, agent)) {
+        actions.train(ZEALOT, idleGateway);
+        console.log('training Zealot')
+      }
+    } catch (err) {
+      console.log('WTF dude ', err.message)
+      return null
+    }
   }
+
+  // if (this.state.seekAndDestroy) {
+  //   const expansions = map.getExpansions()
+  //   console.log(`Watch out! ${expansions.length}`)
+  // }
 }
 
 async function onUnitDestroyed({ agent, resources }, destroyedUnit) {
-  console.log(`Too bad for ${destroyedUnit.unitType}`)
-  if (destroyedUnit.isTownHall()) {
-    console.log('HOLD THE LINE')
-    const { actions, map, units } = resources.get()
-    const army = units.getCombatUnits()
+  // console.log(`Too bad for ${destroyedUnit.unitType} - ${destroyedUnit.isTownhall()}`)
+  // if (destroyedUnit.isTownhall() && destroyedUnit.isEnemy()) {
+  //   this.setState({ lateGame: true })
 
-    return actions.attackMove(army, destroyedUnit.pos, true)
-  }
+  //   console.log('HOLD THE LINE - ', destroyedUnit.labels.has('allYourBase'))
+  //   console.log('HOLD THE LINE 2 - ', destroyedUnit.labels.hasOwnProperty('allYourBase'))
+  //   const { actions, units, map } = resources.get()
+  //   // const enemyMain = units.withLabel('allYourBase')
+    
+  //   if (destroyedUnit.labels.has('allYourBase')) {
+  //     map.getExpansions(Alliance.ENEMY).forEach((base, i) => {
+  //       const bunch = units.getClosest(base.pos, units, units/i)
+  //       actions.attackMove(bunch, base.pos, true)
+  //     })
+  //   }
+
+  // }
 }
 
 async function onEnemyFirstSeen({ agent, resources }, enemyUnit) {
+  // console.log(`Sir, we have a ${enemyUnit.isTownhall()}`)
   // if (enemyUnit.labels.has('allYourBase')) {
-  if (enemyUnit.isTownHall()) {
-    console.log('ALL YOUR BASE ARE BELONG TO US')
-    this.setState({ seekAndDestroy: true })
-  }
+  //   if (enemyUnit.isTownhall()) {
+  //     const { actions, units, map } = resources.get()
+  //     console.log('ALL YOUR BASE ARE BELONG TO US')
+  //     const [enemyMain] = map.getExpansions(Alliance.ENEMY);
+  //     const army = units.getCombatUnits()
+  //     console.log(`ALL TO ${enemyMain.pos}!`)
+  //     actions.attackMove(army, enemyMain.pos, true)
+  //   this.setState({ seekAndDestroy: true })
+  // }
 }
 
 async function onUnitCreated({ agent, resources }, newUnit) {

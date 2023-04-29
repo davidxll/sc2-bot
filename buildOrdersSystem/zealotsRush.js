@@ -7,49 +7,28 @@ const { CANCEL_LAST, CANCEL_QUEUEPASIVE } = require('@node-sc2/core/constants/ab
 const { ASSIMILATOR, CYBERNETICSCORE, FORGE, GATEWAY, NEXUS, TWILIGHTCOUNCIL, ROBOTICSBAY, ROBOTICSFACILITY,
   PROBE } = require('@node-sc2/core/constants/unit-type');
 
-const { build, upgrade } = taskFunctions;
+const { build, train, upgrade } = taskFunctions;
 
-const WORKERS_PER_BASE = 20
-const MAX_ARMY_SIZE = 80
-
-// const buildOrder = [
-//   [15, build(GATEWAY)],
-//   [18, build(ASSIMILATOR)],
-//   [21, build(NEXUS)],
-//   [24, build(FORGE)],
-//   [28, build(ASSIMILATOR)],
-//   [30, build(CYBERNETICSCORE)],
-//   [34, build(ROBOTICSFACILITY)],
-//   [34, build(GATEWAY, 3)],
-//   [37, build(ROBOTICSBAY)],
-//   [40, build(ASSIMILATOR, 2)],
-//   [39, build(TWILIGHTCOUNCIL)],
-//   [70, build(NEXUS)],
-//   [75, build(ASSIMILATOR, 2)],
-//   [100, build(NEXUS)],
-//   [120, build(ASSIMILATOR, 2)],
-//   [130, build(ROBOTICSFACILITY, 2)],
-//   [140, build(GATEWAY, 3)],
-//   [150, build(NEXUS)],
-//   [170, build(ASSIMILATOR, 2)],
-// ]
+const INITIAL_WORKERS_PER_BASE = 22
+const MAX_RESERVE_SIZE = 40
 
 const buildOrder = [
+  [14, train(PROBE, 3)],
   [15, build(GATEWAY)],
   [16, build(ASSIMILATOR)],
-  [17, build(NEXUS)],
   [18, build(FORGE)],
-  [19, build(ASSIMILATOR)],
   [20, build(CYBERNETICSCORE)],
+  [17, build(NEXUS)],
+  [19, build(ASSIMILATOR)],
   [21, build(ROBOTICSFACILITY)],
   [22, build(GATEWAY, 3)],
   [23, build(ROBOTICSBAY)],
-  [24, build(ASSIMILATOR, 2)],
   [25, build(TWILIGHTCOUNCIL)],
+  [24, build(ASSIMILATOR)],
   [26, build(NEXUS)],
-  [27, build(ASSIMILATOR, 2)],
+  [27, build(ASSIMILATOR)],
   [28, build(NEXUS)],
-  [29, build(ASSIMILATOR, 2)],
+  [29, build(ASSIMILATOR)],
   [30, build(ROBOTICSFACILITY, 2)],
   [31, build(GATEWAY, 3)],
   [32, build(NEXUS)],
@@ -61,7 +40,7 @@ const buildOrder = [
 const defaultOptions = {
   state: {
     armySize: 12,
-    bitchesPerBase: 22,
+    bitchesPerBase: INITIAL_WORKERS_PER_BASE,
     noMoreWorkersPls: false
   },
 }
@@ -74,7 +53,7 @@ const getNumeros = ({ minerals, vespene, foodCap, foodUsed, foodArmy, foodWorker
 
 const repeat = (item, times) => {
 	let rslt = [];
-	for(let i = 0; i < times; i++) {
+	for (let i = 0; i < times; i++) {
   	rslt.push(item)
   }
   return rslt;
@@ -126,20 +105,20 @@ async function onUnitFinished({ resources }, newBuilding) {
 
   if (newBuilding.isTownhall()) {
     console.log('expanded!')
-    const dirtyBitches = getBitchBitches(units.getBases(Alliance.SELF).filter(b => b.buildProgress >= 1), units.getMineralWorkers(), units)
-    if (dirtyBitches.length > 0) {
-      console.log(`MOVILIZING ${dirtyBitches.length} bitches`)
-      return Promise.all(dirtyBitches.map(bitch => actions.gather(bitch)))
-    }
   }
-  
+  const dirtyBitches = getBitchBitches(units.getBases(Alliance.SELF).filter(b => b.buildProgress >= 1), units.getMineralWorkers(), units)
+  if (dirtyBitches.length > 0) {
+    console.log(`MOVILIZING ${dirtyBitches.length} bitches`)
+    return Promise.all(dirtyBitches.map(bitch => actions.gather(bitch)))
+  }
+
 }
 
 async function onUnitCreated({ agent, resources }, newUnit) {
   const { actions, units, map } = resources.get();
   const { foodCap, foodUsed } = agent
   const foodLeft = foodCap - foodUsed
-  const miaBases = units.getBases(Alliance.SELF)
+  const miaBases = units.getBases(Alliance.SELF).filter(b => b.buildProgress >= 1)
   // actual units logic
   if (newUnit.isWorker()) {
     actions.gather(newUnit);
@@ -151,7 +130,7 @@ async function onUnitCreated({ agent, resources }, newUnit) {
   const noMoreWorkersPls = units.getWorkers().length > (miaBases.length * this.state.bitchesPerBase)
   this.setState({ noMoreWorkersPls });
   
-  const needyBases = getNeedyBases(miaBases)
+  // const needyBases = getNeedyBases(miaBases)
 
   if (noMoreWorkersPls) {
     console.log(`no moer twerkers - foodcap: ${foodCap}`)
@@ -165,27 +144,22 @@ async function onUnitCreated({ agent, resources }, newUnit) {
       console.log('set bitchesPerBase to 14')
       this.setState({ bitchesPerBase: 14 })
     }
-  } else if (foodLeft > 2 * needyBases.length) {
-    // order needed workers in their base
-    needyBases.forEach(({ diff, base }) => {
-      console.log('training more bitches - ', diff)
-      const orders = repeat({ unitId: PROBE, production: base }, diff)
-      wishList.push(...orders)
-    })
-  } else {
-    console.log(`no action needed ${JSON.stringify({foodLeft, needyBasesLength: needyBases.length, noMoreWorkersPls})}`)
   }
 }
 
 async function onStep({ agent, data, resources }) {
   const { units, actions, map } = resources.get();
+  const { foodCap, foodUsed } = agent
+  const foodLeft = foodCap - foodUsed
+  const miaBases = units.getBases(Alliance.SELF).filter(b => b.buildProgress >= 1)
   
   // only get idle units, so we know how many are in waiting
   const idleCombatUnits = units.getCombatUnits().filter(u => u.noQueue);
   if (idleCombatUnits.length > this.state.armySize) {
     // add to our army size, so each attack is slightly larger
-    if (this.state.armySize < MAX_ARMY_SIZE)
-    this.setState({ armySize: this.state.armySize + 4 });
+    if (this.state.armySize < MAX_RESERVE_SIZE) {
+      this.setState({ armySize: this.state.armySize + 4 });
+    }
     const [enemyMain, enemyNat] = map.getExpansions(Alliance.ENEMY);
     
     return Promise.all([enemyNat, enemyMain].map((expansion) => {
@@ -196,14 +170,31 @@ async function onStep({ agent, data, resources }) {
 
   // Why tho T.T
   if (this.state.noMoreWorkersPls) {
-    const basesBuildingShit = units.getBases(Alliance.SELF).filter(b => b.abilityAvailable(CANCEL_QUEUEPASIVE)) // bases[0].abilityAvailable(207)
-    return Promise.all(basesBuildingShit.map(base => actions.do(CANCEL_QUEUEPASIVE, base)))
+    const basesTrainingBitch = units.getBases(Alliance.SELF).filter(b => b.abilityAvailable(CANCEL_QUEUEPASIVE)) // bases[0].abilityAvailable(207)
+    return Promise.all(basesTrainingBitch.map(base => actions.do(CANCEL_QUEUEPASIVE, base)))
   } else if (wishList.length > 0) {
+    console.log(`Why tho T.T - ${wishList.length}`)
     const { unitId, production } = wishList[0]
-    if (agent.canAfford(unitId) && agent.hasTechFor(unitId)) {
-      wishList.shift()
-      console.log(`got your ${unitId}, babe ;)`)
-      return actions.train(unitId, production)
+    try {
+      if (agent.canAfford(unitId) && agent.hasTechFor(unitId)) {
+        wishList.shift()
+        return actions.train(unitId, production)
+      }
+    } catch(err) {
+      console.log('fucking Daniel ', err.message)
+      return 'oka'
+    }
+  }
+
+  const needyBases = miaBases.filter(base => base.assignedHarvesters < base.idealHarvesters)
+
+  if (foodLeft > (needyBases.length * 2)) {
+    // order needed workers in their base
+    try {
+      return Promise.all(needyBases.map(base => actions.train(PROBE, base)))
+    } catch (err) {
+      console.log('gaddemit daniel ', err.message)
+      return 'oops'
     }
   }
   // if (this.state.noMoreWorkersPls) {
