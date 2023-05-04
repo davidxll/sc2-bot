@@ -66,34 +66,34 @@ async function onStep({ agent, data, resources }) {
     return null
   }
 
-  if(idleRoboticFac && spaceLeft) {
-    try {
-      if (canTrain(COLOSSUS, agent) && spaceLeft >= 8) {
-        actions.train(COLOSSUS, idleRoboticFac)
-        console.log('training Colossus')
-      }
-      else if (canTrain(IMMORTAL, agent) && spaceLeft >= 6) {
-        actions.train(IMMORTAL, idleRoboticFac)
-        console.log('training Immortal')
-      }
-    } catch (err) {
-      console.log('that fucking prick ', err.message)
-      return undefined
-    }
-  }
-
   if (idleGateway && spaceLeft >= 4) {
     try {
       if (canTrain(STALKER, agent)) {
-        actions.train(STALKER, idleGateway);
         console.log('training Stalker')
+        await actions.train(STALKER, idleGateway);
       } else if (canTrain(ZEALOT, agent)) {
-        actions.train(ZEALOT, idleGateway);
         console.log('training Zealot')
+        await actions.train(ZEALOT, idleGateway);
       }
     } catch (err) {
       console.log('WTF dude ', err.message)
       return null
+    }
+  }
+
+  if(idleRoboticFac && spaceLeft) {
+    try {
+      if (canTrain(COLOSSUS, agent) && spaceLeft >= 8) {
+        console.log('training Colossus')
+        await actions.train(COLOSSUS, idleRoboticFac)
+      }
+      else if (canTrain(IMMORTAL, agent) && spaceLeft >= 6) {
+        console.log('training Immortal')
+        await actions.train(IMMORTAL, idleRoboticFac)
+      }
+    } catch (err) {
+      console.log('that fucking prick ', err.message)
+      return undefined
     }
   }
 

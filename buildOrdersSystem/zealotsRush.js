@@ -149,7 +149,7 @@ async function onUnitCreated({ agent, resources }, newUnit) {
 
 async function onStep({ agent, data, resources }) {
   const { units, actions, map } = resources.get();
-  const { foodCap, foodUsed } = agent
+  const { foodCap, foodUsed, minerals } = agent
   const foodLeft = foodCap - foodUsed
   const miaBases = units.getBases(Alliance.SELF).filter(b => b.buildProgress >= 1)
   
@@ -178,7 +178,7 @@ async function onStep({ agent, data, resources }) {
     try {
       if (agent.canAfford(unitId) && agent.hasTechFor(unitId)) {
         wishList.shift()
-        return actions.train(unitId, production)
+        await actions.train(unitId, production)
       }
     } catch(err) {
       console.log('fucking Daniel ', err.message)
@@ -187,13 +187,14 @@ async function onStep({ agent, data, resources }) {
   }
 
   const needyBases = miaBases.filter(base => base.assignedHarvesters < base.idealHarvesters)
-
-  if (foodLeft > (needyBases.length * 2)) {
+  
+  if (foodLeft > (needyBases.length * 2) && minerals > (needyBases.length * 50)) {
     // order needed workers in their base
     try {
-      return Promise.all(needyBases.map(base => actions.train(PROBE, base)))
+      await Promise.all(needyBases.map(base => actions.train(PROBE, base)))
     } catch (err) {
       console.log('gaddemit daniel ', err.message)
+      console.log('needyBases.length: ', needyBases.length)
       return 'oops'
     }
   }
