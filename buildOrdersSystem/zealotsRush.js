@@ -5,7 +5,7 @@ const { CHARGE } = require('@node-sc2/core/constants/upgrade');
 const { Alliance } = require('@node-sc2/core/constants/enums');
 const { CANCEL_LAST, CANCEL_QUEUEPASIVE } = require('@node-sc2/core/constants/ability');
 const { ASSIMILATOR, CYBERNETICSCORE, FORGE, GATEWAY, NEXUS, TWILIGHTCOUNCIL, ROBOTICSBAY, ROBOTICSFACILITY,
-  PROBE } = require('@node-sc2/core/constants/unit-type');
+  PROBE, STARGATE } = require('@node-sc2/core/constants/unit-type');
 
 const { build, train, upgrade } = taskFunctions;
 
@@ -22,7 +22,7 @@ const buildOrder = [
   [17, build(NEXUS)],
   [19, build(ASSIMILATOR)],
   [21, build(ROBOTICSFACILITY)],
-  [22, build(GATEWAY, 3)],
+  [22, build(GATEWAY)],
   [23, build(ROBOTICSBAY)],
   [25, build(TWILIGHTCOUNCIL)],
   [24, build(ASSIMILATOR)],
@@ -30,12 +30,11 @@ const buildOrder = [
   [27, build(ASSIMILATOR)],
   [28, build(NEXUS)],
   [29, build(ASSIMILATOR)],
-  [30, build(ROBOTICSFACILITY, 2)],
-  [31, build(GATEWAY, 3)],
-  [32, build(GATEWAY, 3)],
   [33, build(ROBOTICSFACILITY, 2)],
   [34, build(NEXUS)],
   [35, build(ASSIMILATOR, 2)],
+  [35, build(GATEWAY), 2],
+  [36, build(STARGATE, 2)],
 ]
 
 const defaultOptions = {

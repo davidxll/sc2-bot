@@ -5,8 +5,10 @@ const { GATEWAY, NEXUS, ROBOTICSFACILITY, CYBERNETICSCORE, ROBOTICSBAY, ZEALOT, 
 const { EFFECT_CHRONOBOOSTENERGYCOST } = require('@node-sc2/core/constants/ability');
 const { PROTOSSGROUNDWEAPONSLEVEL1, PROTOSSSHIELDSLEVEL1, PROTOSSGROUNDARMORSLEVEL1,
   PROTOSSGROUNDWEAPONSLEVEL2, PROTOSSSHIELDSLEVEL2, PROTOSSGROUNDARMORSLEVEL2,
-  PROTOSSGROUNDWEAPONSLEVEL3, PROTOSSSHIELDSLEVEL3, PROTOSSGROUNDARMORSLEVEL3,
-  EXTENDEDTHERMALLANCE } = require('@node-sc2/core/constants/upgrade');
+  PROTOSSGROUNDWEAPONSLEVEL3, PROTOSSSHIELDSLEVEL3, PROTOSSGROUNDARMORSLEVEL3, EXTENDEDTHERMALLANCE,
+  PROTOSSAIRWEAPONSLEVEL1, PROTOSSAIRWEAPONSLEVEL2, PROTOSSAIRWEAPONSLEVEL3,
+  PROTOSSAIRARMORSLEVEL1, PROTOSSAIRARMORSLEVEL2, PROTOSSAIRARMORSLEVEL3,
+ } = require('@node-sc2/core/constants/upgrade');
 
 const { build, upgrade, ability } = taskFunctions;
 
@@ -21,14 +23,20 @@ const buildOrder = [
   [5, upgrade(EXTENDEDTHERMALLANCE)],
   [6, upgrade(PROTOSSSHIELDSLEVEL2)],
   [7, upgrade(PROTOSSSHIELDSLEVEL3)],
-  [8, upgrade(PROTOSSGROUNDARMORSLEVEL2)],
-  [9, upgrade(PROTOSSGROUNDWEAPONSLEVEL3)],
-  [10, upgrade(PROTOSSGROUNDARMORSLEVEL3)],
+  [8, upgrade(PROTOSSAIRWEAPONSLEVEL1)],
+  [9, upgrade(PROTOSSAIRARMORSLEVEL1)],
+  [10, upgrade(PROTOSSGROUNDARMORSLEVEL2)],
+  [11, upgrade(PROTOSSAIRWEAPONSLEVEL2)],
+  [12, upgrade(PROTOSSGROUNDWEAPONSLEVEL3)],
+  [13, upgrade(PROTOSSAIRARMORSLEVEL2)],
+  [14, upgrade(PROTOSSGROUNDARMORSLEVEL3)],
+  [15, upgrade(PROTOSSAIRWEAPONSLEVEL3)],
+  [16, upgrade(PROTOSSAIRARMORSLEVEL3)],
 ]
 
 const defaultOptions = {
   state: {
-      targetMoney: 0,
+      targetMoney: FOR_THE_WATCH,
       // seekAndDestroy: false,
       // fullRetaliation: false,
   },
@@ -61,7 +69,7 @@ async function onStep({ agent, data, resources }) {
   const idleGateway = units.getById(GATEWAY, { noQueue: true, buildProgress: 1 })[0];
   const spaceLeft = agent.foodCap - agent.foodUsed
 
-  if (minerals < FOR_THE_WATCH && foodArmy > 10) {
+  if (minerals < this.state.targetMoney && foodArmy > 10) {
     // console.log('for the watch')
     return null
   }
@@ -95,6 +103,10 @@ async function onStep({ agent, data, resources }) {
       console.log('that fucking prick ', err.message)
       return undefined
     }
+  }
+
+  if (agent.foodCap > 150 && this.state.targetMoney === FOR_THE_WATCH) {
+    this.setState({ targetMoney: FOR_THE_WATCH * 2 })
   }
 
   // if (this.state.seekAndDestroy) {

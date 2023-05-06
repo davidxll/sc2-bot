@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node ./index.js",
     "start-logger": "set DEBUG=sc2:debug:*,sc2:DrawDebug node ./index.js",
-    "start-inspect": "node --inspect --trace-warnings ./index.js",
+    "debug": "node --inspect --trace-warnings ./index.js",
     "build": "webpack --config webpack.config.js",
     "build-no": "babel index.js -d dist"
   },
