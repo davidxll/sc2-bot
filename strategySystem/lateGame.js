@@ -11,6 +11,7 @@ const defaultOptions = {
   state: {
       seekAndDestroy: false,
       fullRetaliation: false,
+      isLameGame: true,
   },
 }
 
@@ -41,11 +42,16 @@ async function onStep({ agent, data, resources }) {
   if (this.state.seekAndDestroy && !this.state.fullRetaliation) {
     console.log('Searching... seek and destroy!')
     this.setState({ fullRetaliation: true })
-    const alives = units.getAll(units.canMove)
+    const alives = [...units.getWorkers(), ...units.getCombatUnits()]
+    console.log('alives: ', alives.length)
     const expansions = map.getExpansions()
-    const squads = split(alives, Math.floor(alives.length/expansions.length))
-    console.log('suicide squads: ', JSON.stringify({ squads: squads.length, expansions: expansions.length }, null, 2))
+    const quadsNum = Math.floor(alives.length/expansions.length)
+    const squads = split(alives, quadsNum)
+    console.log('suicide squads: ', JSON.stringify(
+      { squads: squads.length, alivesLength: alives.length, expansions: expansions.length, squadOne: squads[0].length },
+      null, 2))
     return Promise.all(expansions.map((exp, i) => {
+      console.log(JSON.stringify({ x: exp.pos.x, y: exp.pos.y, i }, null, 2))
       return actions.attackMove(squads[i], exp.pos, true)
     }))
   }
@@ -60,19 +66,20 @@ async function onUnitDestroyed({ agent, resources }, destroyedUnit) {
     }
     if (distance(destroyedUnit.pos, enemyMainPos) < 1) {
       console.log('We do away with your kind')
-  
-      const enemyExpansions = map.getExpansions(Alliance.ENEMY)
       this.setState({ seekAndDestroy: true })
-      const twerkers = units.getWorkers(true)
-      return Promise.all(enemyExpansions.map((base, i) => {
-        if (i > 0) {
-          const bunch = units.getClosest(base.pos, twerkers, twerkers.length/i)
-          return actions.attackMove(bunch, base.pos, true)
-        }
-      }))
+  
+      // const enemyExpansions = map.getExpansions(Alliance.ENEMY)
+      // const twerkers = units.getWorkers(true)
+
+      // return Promise.all(enemyExpansions.map((base, i) => {
+      //   if (i > 0) {
+      //     const bunch = units.getClosest(base.pos, twerkers, twerkers.length/i)
+      //     return actions.attackMove(bunch, base.pos, true)
+      //   }
+      // }))
     }
   } else if (destroyedUnit.isTownhall() && destroyedUnit.alliance === Alliance.SELF) {
-    const twerkers = units.getWorkers(true)
+    const twerkers = units.getWorkers()
     return actions.attackMove(twerkers, destroyedUnit.pos, true)
   }
 }
@@ -91,6 +98,14 @@ async function onEnemyFirstSeen({ agent, resources }, enemyUnit) {
     }
 }
 
+async function onUnitDamaged({ agent, resources }, unit) {
+  const { actions, units, map } = resources.get()
+    if (unit.isTownhall()) {
+      const idleCombatUnits = units.getCombatUnits().filter(u => u.noQueue);
+      return actions.attackMove(idleCombatUnits, unit.pos, true)
+    }
+}
+
 async function onUnitCreated({ agent, resources }, newUnit) {
   // const { actions, map, units } = resources.get();
 }
@@ -105,5 +120,6 @@ module.exports = createSystem({
     onUnitFinished,
     onUnitCreated,
     onUnitDestroyed,
-    onEnemyFirstSeen
+    onEnemyFirstSeen,
+    onUnitDamaged
 });

@@ -15,6 +15,7 @@ const MAX_RESERVE_SIZE = 40
 const buildOrder = [
   [14, train(PROBE, 3)],
   [15, build(GATEWAY)],
+  [16, train(PROBE, 2)],
   [16, build(ASSIMILATOR)],
   [18, build(FORGE)],
   [20, build(CYBERNETICSCORE)],
@@ -31,10 +32,10 @@ const buildOrder = [
   [29, build(ASSIMILATOR)],
   [30, build(ROBOTICSFACILITY, 2)],
   [31, build(GATEWAY, 3)],
-  [32, build(NEXUS)],
-  [33, build(ASSIMILATOR, 2)],
-  [34, build(GATEWAY, 3)],
-  [35, build(ROBOTICSFACILITY, 2)],
+  [32, build(GATEWAY, 3)],
+  [33, build(ROBOTICSFACILITY, 2)],
+  [34, build(NEXUS)],
+  [35, build(ASSIMILATOR, 2)],
 ]
 
 const defaultOptions = {
@@ -181,7 +182,7 @@ async function onStep({ agent, data, resources }) {
         await actions.train(unitId, production)
       }
     } catch(err) {
-      console.log('fucking Daniel ', err.message)
+      // console.log('fucking Daniel ', err.message)
       return 'oka'
     }
   }
@@ -193,8 +194,7 @@ async function onStep({ agent, data, resources }) {
     try {
       await Promise.all(needyBases.map(base => actions.train(PROBE, base)))
     } catch (err) {
-      console.log('gaddemit daniel ', err.message)
-      console.log('needyBases.length: ', needyBases.length)
+      // console.log('gaddemit daniel ', err.message)
       return 'oops'
     }
   }
