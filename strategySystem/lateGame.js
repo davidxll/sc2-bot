@@ -5,20 +5,6 @@ const { areEqual, distance } = require('@node-sc2/core/utils/geometry/point');
 const { STARGATE, OBSERVER, VOIDRAY, CARRIER, ROBOTICSFACILITY } = require('@node-sc2/core/constants/unit-type');
 const getBuildingPlacement = require('../helpers/placement');
 
-const { build, train } = taskFunctions;
-
-const buildOrder = []
-
-const defaultOptions = {
-  state: {
-      seekAndDestroy: false,
-      fullRetaliation: false,
-      isLameGame: false,
-  },
-}
-
-let enemyMainPos = {}
-
 function split(array, n, res = []) {
   if(array.length > 0) {
     res.push(array.splice(0, n))
@@ -30,6 +16,17 @@ function split(array, n, res = []) {
 function canTrainOrBuild(unitID, agent) {
   return agent.canAfford(unitID) && agent.hasTechFor(unitID)
 }
+
+const defaultOptions = {
+  state: {
+      seekAndDestroy: false,
+      fullRetaliation: false,
+      isLameGame: false,
+      gotObservador: false
+  },
+}
+
+let enemyMainPos = {}
 
 async function onUnitFinished({ resources }, newBuilding) { 
   console.log(`onUnitFinished in lateGame`)
@@ -60,10 +57,6 @@ async function onStep(world) {
       { squads: squads.length, expansions: expansions.length, squadOne: squads[0].length },
       null, 2))
     for (const [i, v] of expansions.entries()) {
-      console.log('Expansion info: ', JSON.stringify({ x: v.townhallPosition.x, y: v.townhallPosition.y, i, squadLength: squads[i].length }, null, 2))
-    }
-    for (const [i, v] of expansions.entries()) {
-      console.log('Expansion data: ', JSON.stringify({ x: v.townhallPosition.x, y: v.townhallPosition.y, i, squadLength: squads[i].length }, null, 2))
       await actions.attackMove(squads[i], v.townhallPosition, true)
     }
     // return Promise.all(expansions.forEach((exp, i) => {
@@ -77,6 +70,7 @@ async function onStep(world) {
     const idleStarGay = units.getById(STARGATE, { noQueue: true, buildProgress: 1 })[0];
     const spaceLeft = agent.foodCap - agent.foodUsed
 
+    // Stargates logic
     if (idleStarGay && spaceLeft > 6) {
       try {
         if (canTrainOrBuild(CARRIER, agent)) {
@@ -104,12 +98,13 @@ async function onStep(world) {
       }
     }
 
-    const observadores = units.getById(OBSERVER)
+    // Observer logic
     const idleRoboticFac = units.getById(ROBOTICSFACILITY, { noQueue: true, buildProgress: 1 })[0];
-    if(observadores.length < 1 && idleRoboticFac && canTrainOrBuild(OBSERVER, agent) && spaceLeft > 1) {
+    if (!this.state.gotObservador && idleRoboticFac && canTrainOrBuild(OBSERVER, agent) && spaceLeft > 1) {
       try {
         console.log('training observador')
         await actions.train(OBSERVER, idleRoboticFac);
+        this.setState({ gotObservador: true })
       } catch (err) {
         console.log('coño observador ', err.message)
         return null
@@ -117,8 +112,9 @@ async function onStep(world) {
     }
   }
 
+  // controller logic
   if (agent.foodCap > 150 && !this.state.isLameGame) {
-    this.setState({ isLameGame: true });
+    this.setState({ isLameGame: true })
     console.log('this is lame game')
   }
 }
@@ -133,20 +129,14 @@ async function onUnitDestroyed({ agent, resources }, destroyedUnit) {
     if (distance(destroyedUnit.pos, enemyMainPos) < 1) {
       console.log('We do away with your kind')
       this.setState({ seekAndDestroy: true })
-  
-      // const enemyExpansions = map.getExpansions(Alliance.ENEMY)
-      // const twerkers = units.getWorkers(true)
-
-      // return Promise.all(enemyExpansions.map((base, i) => {
-      //   if (i > 0) {
-      //     const bunch = units.getClosest(base.pos, twerkers, twerkers.length/i)
-      //     return actions.attackMove(bunch, base.pos, true)
-      //   }
-      // }))
     }
   } else if (destroyedUnit.isTownhall() && destroyedUnit.alliance === Alliance.SELF) {
     const idles = units.getIdle()
     return actions.attackMove(idles, destroyedUnit.pos, true)
+  }
+
+  if (destroyedUnit.is(OBSERVER) && destroyedUnit.alliance === Alliance.SELF) {
+    this.setState({ gotObservador: false })
   }
 }
 
@@ -168,8 +158,14 @@ async function onUnitDamaged({ agent, resources }, unit) {
   const { actions, units, map } = resources.get()
     if (unit.isTownhall()) {
       const idleCombatUnits = units.getCombatUnits().filter(u => u.noQueue);
-      return actions.attackMove(idleCombatUnits, unit.pos, true)
+      const harvesters = unit.assignedHarvesters
+      if (harvesters > 0) {
+        console.log('We shall fear not! ', harvesters)
+        const workers = units.getClosest(unit.pos, units.getWorkers(), harvesters)
+        return actions.attackMove([...idleCombatUnits, ...workers], unit.pos, true)
+      }
     }
+    // use thing of void ray
 }
 
 async function onUnitCreated({ agent, resources }, newUnit) {
@@ -183,7 +179,7 @@ async function buildComplete({ agent, resources }, gameloop) {
 module.exports = createSystem({
     name: 'lateGayme',
     type: 'build',
-    buildOrder,
+    buildOrder: [],
     defaultOptions,
     onStep,
     onGameStart,

@@ -5,12 +5,12 @@ const { CHARGE } = require('@node-sc2/core/constants/upgrade');
 const { Alliance } = require('@node-sc2/core/constants/enums');
 const { CANCEL_LAST, CANCEL_QUEUEPASIVE } = require('@node-sc2/core/constants/ability');
 const { ASSIMILATOR, CYBERNETICSCORE, FORGE, GATEWAY, NEXUS, TWILIGHTCOUNCIL, ROBOTICSBAY, ROBOTICSFACILITY,
-  PROBE, STARGATE } = require('@node-sc2/core/constants/unit-type');
+  PROBE, STARGATE, FLEETBEACON } = require('@node-sc2/core/constants/unit-type');
 
 const { build, train, upgrade } = taskFunctions;
 
 const INITIAL_WORKERS_PER_BASE = 22
-const MAX_RESERVE_SIZE = 40
+const MAX_RESERVE_SIZE = 28
 
 const buildOrder = [
   [14, train(PROBE, 3)],
@@ -33,15 +33,17 @@ const buildOrder = [
   [33, build(ROBOTICSFACILITY, 2)],
   [34, build(NEXUS)],
   [35, build(ASSIMILATOR, 2)],
-  [35, build(GATEWAY), 2],
-  [36, build(STARGATE, 2)],
+  [36, build(GATEWAY), 2],
+  [37, build(STARGATE, 2)],
+  [38, build(FLEETBEACON)],
 ]
 
 const defaultOptions = {
   state: {
     armySize: 12,
     bitchesPerBase: INITIAL_WORKERS_PER_BASE,
-    noMoreWorkersPls: false
+    noMoreWorkersPls: false,
+    needyGasMine: null
   },
 }
 
@@ -132,6 +134,26 @@ async function onUnitCreated({ agent, resources }, newUnit) {
   
   // const needyBases = getNeedyBases(miaBases)
 
+  if (this.state.needyGasMine) {
+    const diff = this.state.needyGasMine.assignedHarvesters - 3
+    const workers = units.getWorkers()
+      if (diff > 0) {
+        const base = units.getClosest(this.state.needyGasMine.pos, miaBases)
+        const they = units.getClosest(base.pos, workers, diff)
+        console.log({ HailTheMiners: diff })
+        try {
+          await actions.mine(they, this.state.needyGasMine);
+        } catch(err) {
+          console.log('why tho T.T\n', err.message)
+        }
+      } else {
+        console.log('this should never happen, ', diff)
+        const daExtra = units.getClosest(this.state.needyGasMine.pos, workers)
+        await actions.gather(daExtra)
+      }
+      this.state.needyGasMine = null
+  }
+
   if (noMoreWorkersPls) {
     console.log(`no moer twerkers - foodcap: ${foodCap}`)
     if(foodCap > 50 && foodCap < 100) {
@@ -152,10 +174,10 @@ async function onStep({ agent, data, resources }) {
   const { foodCap, foodUsed, minerals } = agent
   const foodLeft = foodCap - foodUsed
   const miaBases = units.getBases(Alliance.SELF).filter(b => b.buildProgress >= 1)
-  
+
   // only get idle units, so we know how many are in waiting
   const idleCombatUnits = units.getCombatUnits().filter(u => u.noQueue);
-  if (idleCombatUnits.length > this.state.armySize) {
+  if (idleCombatUnits.length > this.state.armySize || (foodUsed > 190 && idleCombatUnits.length > 10)) {
     // add to our army size, so each attack is slightly larger
     if (this.state.armySize < MAX_RESERVE_SIZE) {
       this.setState({ armySize: this.state.armySize + 4 });
@@ -197,14 +219,17 @@ async function onStep({ agent, data, resources }) {
       return 'oops'
     }
   }
-  // if (this.state.noMoreWorkersPls) {
-  //   console.log('CANCEL, Beach!!')
-  //   const canCancel = units.getBases(Alliance.SELF).filter(b => b.abilityAvailable(CANCEL_LAST));
-  //   console.log(canCancel[0] && canCancel[0].orders)
-  //   if(canCancel.length > 0) {
-  //     return Promise.all(canCancel.map(base => actions.do(CANCEL_LAST, base)))
-  //   }
-  // }
+
+  // GAS Business
+  // Do we got idle gas stations?
+  const assimilators = units.getGasMines().filter(b => b.buildProgress >= 1)
+  
+  for (const assimilator of assimilators) {
+    if (assimilator.assignedHarvesters < 3 && !this.state.needyGasMine) {
+      this.setState({ needyGasMine: assimilator })
+    }
+  }
+  // do we need more gas stuff?
 }
 
 async function onUpgradeComplete({ resources }, upgrade) {
