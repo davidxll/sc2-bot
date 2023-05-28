@@ -4,6 +4,7 @@ const protossSupplySystem = require('./collectionSystem/protossupply');
 const eightGateAllIn = require('./buildOrdersSystem/zealotsRush');
 const leMain = require('./strategySystem/protoss')
 const lateGayme = require('./strategySystem/lateGame')
+const kombat = require('./strategySystem/kombat')
 
 const bot = createAgent();
 
@@ -16,4 +17,4 @@ engine.connect().then(() => {
     ]);
 });
 
-bot.use([protossSupplySystem, eightGateAllIn, leMain, lateGayme]);
+bot.use([protossSupplySystem, eightGateAllIn, leMain, lateGayme, kombat]);

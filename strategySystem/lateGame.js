@@ -3,7 +3,7 @@ const { createSystem, taskFunctions } = require('@node-sc2/core');
 const { Alliance } = require('@node-sc2/core/constants/enums');
 const { areEqual, distance } = require('@node-sc2/core/utils/geometry/point');
 const { STARGATE, OBSERVER, VOIDRAY, CARRIER, ROBOTICSFACILITY } = require('@node-sc2/core/constants/unit-type');
-const getBuildingPlacement = require('../helpers/placement');
+const { getBuildingPlacement } = require('../helpers/placement');
 
 function split(array, n, res = []) {
   if(array.length > 0) {
@@ -81,13 +81,13 @@ async function onStep(world) {
           await actions.train(VOIDRAY, idleStarGay);
         }
       } catch (err) {
-        console.log('WTF at airport ', err.message)
+        console.log('err at estargay ', err.message)
         return null
       }
     }
 
-    if (starGays.length < 2) {
-      const placement = getBuildingPlacement(world)
+    if (starGays.length < 2 && canTrainOrBuild(STARGATE, agent)) {
+      const placement = await getBuildingPlacement(world, STARGATE)
       if (placement) {
         try {
           console.log('building stargay')
@@ -113,10 +113,14 @@ async function onStep(world) {
   }
 
   // controller logic
-  if (agent.foodCap > 150 && !this.state.isLameGame) {
+  if (agent.foodCap > 130 && !this.state.isLameGame) {
     this.setState({ isLameGame: true })
     console.log('this is lame game')
   }
+}
+
+async function onLameGame(world) {
+
 }
 
 async function onUnitDestroyed({ agent, resources }, destroyedUnit) {
@@ -173,7 +177,7 @@ async function onUnitCreated({ agent, resources }, newUnit) {
 }
 
 async function buildComplete({ agent, resources }, gameloop) {
-  console.log('WTF')
+  
 }
 
 module.exports = createSystem({

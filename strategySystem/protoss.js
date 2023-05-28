@@ -1,12 +1,12 @@
 // @ts-check
 const { createSystem, taskFunctions } = require('@node-sc2/core');
 const { Alliance } = require('@node-sc2/core/constants/enums');
-const { GATEWAY, NEXUS, ROBOTICSFACILITY, CYBERNETICSCORE, ROBOTICSBAY, ZEALOT, STALKER, COLOSSUS, IMMORTAL } = require('@node-sc2/core/constants/unit-type');
+const { GATEWAY, NEXUS, ROBOTICSFACILITY, CYBERNETICSCORE, ROBOTICSBAY, STARGATE, ZEALOT, STALKER, COLOSSUS, IMMORTAL } = require('@node-sc2/core/constants/unit-type');
 const { EFFECT_CHRONOBOOSTENERGYCOST } = require('@node-sc2/core/constants/ability');
 const { PROTOSSGROUNDWEAPONSLEVEL1, PROTOSSSHIELDSLEVEL1, PROTOSSGROUNDARMORSLEVEL1,
   PROTOSSGROUNDWEAPONSLEVEL2, PROTOSSSHIELDSLEVEL2, PROTOSSGROUNDARMORSLEVEL2,
   PROTOSSGROUNDWEAPONSLEVEL3, PROTOSSSHIELDSLEVEL3, PROTOSSGROUNDARMORSLEVEL3, EXTENDEDTHERMALLANCE,
-  PROTOSSAIRWEAPONSLEVEL1, PROTOSSAIRWEAPONSLEVEL2, PROTOSSAIRWEAPONSLEVEL3,
+  PROTOSSAIRWEAPONSLEVEL1, PROTOSSAIRWEAPONSLEVEL2, PROTOSSAIRWEAPONSLEVEL3, CHARGE, 
   PROTOSSAIRARMORSLEVEL1, PROTOSSAIRARMORSLEVEL2, PROTOSSAIRARMORSLEVEL3,
  } = require('@node-sc2/core/constants/upgrade');
 
@@ -29,6 +29,7 @@ const buildOrder = [
   [11, upgrade(PROTOSSAIRWEAPONSLEVEL2)],
   [12, upgrade(PROTOSSGROUNDWEAPONSLEVEL3)],
   [13, upgrade(PROTOSSAIRARMORSLEVEL2)],
+  [13, upgrade(CHARGE)],
   [14, upgrade(PROTOSSGROUNDARMORSLEVEL3)],
   [15, upgrade(PROTOSSAIRWEAPONSLEVEL3)],
   [16, upgrade(PROTOSSAIRARMORSLEVEL3)],
@@ -67,6 +68,7 @@ async function onStep({ agent, data, resources }) {
   
   const idleRoboticFac = units.getById(ROBOTICSFACILITY, { noQueue: true, buildProgress: 1 })[0];
   const idleGateway = units.getById(GATEWAY, { noQueue: true, buildProgress: 1 })[0];
+  const thereStarGays = !!units.getById(STARGATE, { noQueue: true, buildProgress: 1 })[0];
   const spaceLeft = agent.foodCap - agent.foodUsed
 
   if (minerals < this.state.targetMoney && foodArmy > 10) {
@@ -89,7 +91,7 @@ async function onStep({ agent, data, resources }) {
     }
   }
 
-  if(idleRoboticFac && spaceLeft) {
+  if (idleRoboticFac && spaceLeft && !thereStarGays) {
     try {
       if (canTrain(COLOSSUS, agent) && spaceLeft >= 8) {
         console.log('training Colossus')

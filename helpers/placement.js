@@ -1,7 +1,11 @@
-const { PYLON } = require('@node-sc2/core/constants/unit-type');
+// @ts-check
+
+const { PYLON } = require('@node-sc2/core/constants/unit-type')
+const { distance } = require('@node-sc2/core/utils/geometry/point')
+const { Alliance } = require('@node-sc2/core/constants/enums');
 
 
-function getBuildingPlacement({ resources }, unitId) {
+async function getBuildingPlacement({ resources }, unitId) {
 
   const { actions, map, units } = resources.get();
   const [main, natural] = map.getExpansions();
@@ -34,4 +38,14 @@ function getBuildingPlacement({ resources }, unitId) {
 
 }
 
-module.exports = getBuildingPlacement
+async function getTownhallPlacement({ resources }, unitId) {
+  const { actions, map, units } = resources.get();
+
+  const expansionLocation = map.getAvailableExpansions()[0].townhallPosition;
+
+  const foundPosition = await actions.canPlace(unitId, [expansionLocation]);
+  // @TODO: if we can't place - try to clear out obstacles (like a burrowed zergling)
+  return foundPosition || null
+}
+
+module.exports = { getBuildingPlacement, getTownhallPlacement }

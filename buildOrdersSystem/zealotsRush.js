@@ -5,17 +5,18 @@ const { CHARGE } = require('@node-sc2/core/constants/upgrade');
 const { Alliance } = require('@node-sc2/core/constants/enums');
 const { CANCEL_LAST, CANCEL_QUEUEPASIVE } = require('@node-sc2/core/constants/ability');
 const { ASSIMILATOR, CYBERNETICSCORE, FORGE, GATEWAY, NEXUS, TWILIGHTCOUNCIL, ROBOTICSBAY, ROBOTICSFACILITY,
-  PROBE, STARGATE, FLEETBEACON } = require('@node-sc2/core/constants/unit-type');
+  PROBE, FLEETBEACON } = require('@node-sc2/core/constants/unit-type');
+const { getTownhallPlacement } = require('../helpers/placement');
+const { distance } = require('@node-sc2/core/utils/geometry/point');
 
 const { build, train, upgrade } = taskFunctions;
 
 const INITIAL_WORKERS_PER_BASE = 22
-const MAX_RESERVE_SIZE = 28
 
 const buildOrder = [
-  [14, train(PROBE, 3)],
+  [14, train(PROBE)],
   [15, build(GATEWAY)],
-  [16, train(PROBE, 2)],
+  [16, train(PROBE, 4)],
   [16, build(ASSIMILATOR)],
   [18, build(FORGE)],
   [20, build(CYBERNETICSCORE)],
@@ -34,16 +35,17 @@ const buildOrder = [
   [34, build(NEXUS)],
   [35, build(ASSIMILATOR, 2)],
   [36, build(GATEWAY), 2],
-  [37, build(STARGATE, 2)],
   [38, build(FLEETBEACON)],
+  [40, build(GATEWAY), 2],
+  [42, build(ASSIMILATOR, 3)],
 ]
 
 const defaultOptions = {
   state: {
-    armySize: 12,
     bitchesPerBase: INITIAL_WORKERS_PER_BASE,
     noMoreWorkersPls: false,
-    needyGasMine: null
+    expanseMode: false,
+    needyGasMine: null,
   },
 }
 
@@ -107,12 +109,13 @@ async function onUnitFinished({ resources }, newBuilding) {
 
   if (newBuilding.isTownhall()) {
     console.log('expanded!')
+    await Promise.all(units.getMineralWorkers().map(bitch => actions.gather(bitch)))
   }
-  const dirtyBitches = getBitchBitches(units.getBases(Alliance.SELF).filter(b => b.buildProgress >= 1), units.getMineralWorkers(), units)
-  if (dirtyBitches.length > 0) {
-    console.log(`MOVILIZING ${dirtyBitches.length} bitches`)
-    return Promise.all(dirtyBitches.map(bitch => actions.gather(bitch)))
-  }
+  // const dirtyBitches = getBitchBitches(units.getBases(Alliance.SELF).filter(b => b.buildProgress >= 1), units.getMineralWorkers(), units)
+  // if (dirtyBitches.length > 0) {
+  //   console.log(`MOVILIZING ${dirtyBitches.length} bitches`)
+  //   return Promise.all(dirtyBitches.map(bitch => actions.gather(bitch)))
+  // }
 
 }
 
@@ -120,42 +123,36 @@ async function onUnitCreated({ agent, resources }, newUnit) {
   const { actions, units, map } = resources.get();
   const { foodCap, foodUsed } = agent
   const foodLeft = foodCap - foodUsed
-  const miaBases = units.getBases(Alliance.SELF).filter(b => b.buildProgress >= 1)
+  const miaBases = units.getBases(Alliance.SELF)
   // actual units logic
   if (newUnit.isWorker()) {
-    actions.gather(newUnit);
+    await actions.gather(newUnit);
   } else if (newUnit.isCombatUnit()) {
-    actions.attackMove(newUnit, map.getCombatRally());
+    await actions.attackMove(newUnit, map.getCombatRally());
   }
 
   // other logic to do when a unit is created
-  const noMoreWorkersPls = units.getWorkers().length > (miaBases.length * this.state.bitchesPerBase)
+  const noMoreWorkersPls = miaBases.every(base => (base.assignedHarvesters >= base.idealHarvesters)  && base.buildProgress > 1)
   this.setState({ noMoreWorkersPls });
   
   // const needyBases = getNeedyBases(miaBases)
 
   if (this.state.needyGasMine) {
-    const diff = this.state.needyGasMine.assignedHarvesters - 3
-    const workers = units.getWorkers()
-      if (diff > 0) {
-        const base = units.getClosest(this.state.needyGasMine.pos, miaBases)
-        const they = units.getClosest(base.pos, workers, diff)
-        console.log({ HailTheMiners: diff })
-        try {
-          await actions.mine(they, this.state.needyGasMine);
-        } catch(err) {
-          console.log('why tho T.T\n', err.message)
-        }
-      } else {
-        console.log('this should never happen, ', diff)
-        const daExtra = units.getClosest(this.state.needyGasMine.pos, workers)
-        await actions.gather(daExtra)
+    const it = units.getClosest(this.state.needyGasMine.pos, units.getMineralWorkers())
+    if (this.state.needyGasMine.assignedHarvesters < 3) {
+      try {
+        console.log('work. Beach!')
+        await actions.mine(it, this.state.needyGasMine);
+      } catch(err) {
+        console.log('why tho T.T', err.message)
       }
-      this.state.needyGasMine = null
+    }
+    this.setState({needyGasMine: null})
   }
 
   if (noMoreWorkersPls) {
-    console.log(`no moer twerkers - foodcap: ${foodCap}`)
+    console.log('Setting expanseMode ', true)
+    this.setState({ expanseMode: true })
     if(foodCap > 50 && foodCap < 100) {
       console.log('set bitchesPerBase to 20')
       this.setState({ bitchesPerBase: 20 })
@@ -169,26 +166,12 @@ async function onUnitCreated({ agent, resources }, newUnit) {
   }
 }
 
-async function onStep({ agent, data, resources }) {
+async function onStep(world) {
+  const { agent, data, resources } = world
   const { units, actions, map } = resources.get();
   const { foodCap, foodUsed, minerals } = agent
   const foodLeft = foodCap - foodUsed
   const miaBases = units.getBases(Alliance.SELF).filter(b => b.buildProgress >= 1)
-
-  // only get idle units, so we know how many are in waiting
-  const idleCombatUnits = units.getCombatUnits().filter(u => u.noQueue);
-  if (idleCombatUnits.length > this.state.armySize || (foodUsed > 190 && idleCombatUnits.length > 10)) {
-    // add to our army size, so each attack is slightly larger
-    if (this.state.armySize < MAX_RESERVE_SIZE) {
-      this.setState({ armySize: this.state.armySize + 4 });
-    }
-    const [enemyMain, enemyNat] = map.getExpansions(Alliance.ENEMY);
-    
-    return Promise.all([enemyNat, enemyMain].map((expansion) => {
-      console.log('Attack!!')
-      return actions.attackMove(idleCombatUnits, expansion.townhallPosition, true);
-    }));
-  }
 
   // Why tho T.T
   if (this.state.noMoreWorkersPls) {
@@ -203,19 +186,17 @@ async function onStep({ agent, data, resources }) {
         await actions.train(unitId, production)
       }
     } catch(err) {
-      // console.log('fucking Daniel ', err.message)
+      console.log('fucking Daniel ', err.message)
       return 'oka'
     }
   }
 
   const needyBases = miaBases.filter(base => base.assignedHarvesters < base.idealHarvesters)
-  
+
   if (foodLeft > (needyBases.length * 2) && minerals > (needyBases.length * 50)) {
-    // order needed workers in their base
     try {
       await Promise.all(needyBases.map(base => actions.train(PROBE, base)))
     } catch (err) {
-      // console.log('gaddemit daniel ', err.message)
       return 'oops'
     }
   }
@@ -223,13 +204,31 @@ async function onStep({ agent, data, resources }) {
   // GAS Business
   // Do we got idle gas stations?
   const assimilators = units.getGasMines().filter(b => b.buildProgress >= 1)
-  
-  for (const assimilator of assimilators) {
-    if (assimilator.assignedHarvesters < 3 && !this.state.needyGasMine) {
-      this.setState({ needyGasMine: assimilator })
+  const needyAssimilator = assimilators.find(a => a && a.assignedHarvesters < 3)
+    if (needyAssimilator && !this.state.needyGasMine) {
+      this.setState({ needyGasMine: needyAssimilator })
     }
-  }
   // do we need more gas stuff?
+
+  // EXPANSE
+  if (this.state.expanseMode) {
+    const placement = await getTownhallPlacement(world, NEXUS)
+    if (placement) {
+      console.log('expansing!')
+      await actions.build(NEXUS, placement)
+    }
+    // NEXUS
+  }
+  if (foodUsed > 101) {
+    const geysers = units.getGasGeysers()
+    map.getExpansions().forEach(({ pos }) => {
+      const geyser = units.getClosest(pos, geysers)
+      const dist = distance(geyser.pos, pos)
+      if (dist < 100) {
+        console.log('available geyser for ', JSON.stringify({dist, pos}))
+      }
+    })
+  }
 }
 
 async function onUpgradeComplete({ resources }, upgrade) {
@@ -251,6 +250,17 @@ async function buildComplete() {
   console.log('buildCompleted on zealotsRush')
 }
 
+async function onUnitDamaged({ agent, resources }, unit) {
+  const { actions, units, map } = resources.get()
+  const { foodArmy } = agent
+    if (unit.isTownhall() && unit.alliance === Alliance.SELF && foodArmy < 8) {
+      const combatUnits = units.getCombatUnits()
+      const workers = unit.getWorkers()
+      console.log('HOLD THE DOOR')
+      return actions.attackMove([...combatUnits, ...workers], unit.pos, true)
+    }
+}
+
 module.exports = createSystem({
   name: 'EightGateAllIn',
   type: 'build',
@@ -262,5 +272,6 @@ module.exports = createSystem({
   onUnitFinished,
   onUnitCreated,
   onUpgradeComplete,
-  buildComplete
+  buildComplete,
+  onUnitDamaged
 });
