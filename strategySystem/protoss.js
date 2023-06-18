@@ -13,14 +13,15 @@ const { PROTOSSGROUNDWEAPONSLEVEL1, PROTOSSSHIELDSLEVEL1, PROTOSSGROUNDARMORSLEV
 const { build, upgrade, ability } = taskFunctions;
 
 // money to save for upgrades and builds
-const FOR_THE_WATCH = 250
+const INITIAL_TARGET_MONEY = 250
 
 const buildOrder = [
   [1, upgrade(PROTOSSGROUNDWEAPONSLEVEL1)],
   [2, upgrade(PROTOSSSHIELDSLEVEL1)],
   [3, upgrade(PROTOSSGROUNDARMORSLEVEL1)],
   [4, upgrade(PROTOSSGROUNDWEAPONSLEVEL2)],
-  [5, upgrade(EXTENDEDTHERMALLANCE)],
+  [5, upgrade(CHARGE)],
+  [6, upgrade(EXTENDEDTHERMALLANCE)],
   [6, upgrade(PROTOSSSHIELDSLEVEL2)],
   [7, upgrade(PROTOSSSHIELDSLEVEL3)],
   [8, upgrade(PROTOSSAIRWEAPONSLEVEL1)],
@@ -29,7 +30,6 @@ const buildOrder = [
   [11, upgrade(PROTOSSAIRWEAPONSLEVEL2)],
   [12, upgrade(PROTOSSGROUNDWEAPONSLEVEL3)],
   [13, upgrade(PROTOSSAIRARMORSLEVEL2)],
-  [13, upgrade(CHARGE)],
   [14, upgrade(PROTOSSGROUNDARMORSLEVEL3)],
   [15, upgrade(PROTOSSAIRWEAPONSLEVEL3)],
   [16, upgrade(PROTOSSAIRARMORSLEVEL3)],
@@ -37,16 +37,8 @@ const buildOrder = [
 
 const defaultOptions = {
   state: {
-      targetMoney: FOR_THE_WATCH,
-      // seekAndDestroy: false,
-      // fullRetaliation: false,
+      targetMoney: INITIAL_TARGET_MONEY,
   },
-}
-
-// const enemyMainPos = {}
-
-const getNumeros = ({minerals, vespene, foodCap, foodUsed, foodArmy, foodWorkers, idleWorkerCount, armyCount, warpGateCount, larvaCount}) => {
-  return { minerals, vespene, foodCap, foodUsed, foodArmy, foodWorkers, idleWorkerCount, armyCount, warpGateCount, larvaCount }
 }
 
 function canTrain(unitID, agent) {
@@ -107,8 +99,8 @@ async function onStep({ agent, data, resources }) {
     }
   }
 
-  if (agent.foodCap > 150 && this.state.targetMoney === FOR_THE_WATCH) {
-    this.setState({ targetMoney: FOR_THE_WATCH * 2 })
+  if (agent.foodCap > 150 && this.state.targetMoney === INITIAL_TARGET_MONEY) {
+    this.setState({ targetMoney: INITIAL_TARGET_MONEY * 2 })
   }
 
   // if (this.state.seekAndDestroy) {

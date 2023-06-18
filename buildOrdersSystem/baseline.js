@@ -38,6 +38,7 @@ const buildOrder = [
   [38, build(FLEETBEACON)],
   [40, build(GATEWAY), 2],
   [42, build(ASSIMILATOR, 3)],
+  [150, build(NEXUS)],
 ]
 
 const defaultOptions = {
@@ -46,6 +47,7 @@ const defaultOptions = {
     noMoreWorkersPls: false,
     expanseMode: false,
     needyGasMine: null,
+    forTheWatch: false
   },
 }
 
@@ -76,7 +78,7 @@ function getNeedyBases(ownBases) {
 }
 
 // For the overcrowded bases
-function getBitchBitches(ownBases, bitches, units) {
+function getLeftoverBitches(ownBases, bitches, units) {
   let dirtyBitches = [];
   const bitchedBases = getNeedyBases(ownBases)
   bitchedBases.forEach(({ diff, base }) => {
@@ -176,7 +178,7 @@ async function onStep(world) {
   // Why tho T.T
   if (this.state.noMoreWorkersPls) {
     const basesTrainingBitch = units.getBases(Alliance.SELF).filter(b => b.abilityAvailable(CANCEL_QUEUEPASIVE)) // bases[0].abilityAvailable(207)
-    return Promise.all(basesTrainingBitch.map(base => actions.do(CANCEL_QUEUEPASIVE, base)))
+    await Promise.all(basesTrainingBitch.map(base => actions.do(CANCEL_QUEUEPASIVE, base)))
   } else if (wishList.length > 0) {
     console.log(`Why tho T.T - ${wishList.length}`)
     const { unitId, production } = wishList[0]
@@ -190,14 +192,15 @@ async function onStep(world) {
       return 'oka'
     }
   }
-
+  
   const needyBases = miaBases.filter(base => base.assignedHarvesters < base.idealHarvesters)
-
+  
   if (foodLeft > (needyBases.length * 2) && minerals > (needyBases.length * 50)) {
     try {
       await Promise.all(needyBases.map(base => actions.train(PROBE, base)))
     } catch (err) {
-      return 'oops'
+      // console.log('fucking shit ', err.message)
+      // return 'oops'
     }
   }
 
@@ -229,20 +232,14 @@ async function onStep(world) {
       }
     })
   }
+  if (foodCap === 200 && !this.state.forTheWatch) {
+    console.log('FOR THE WATCH')
+    this.setState({ forTheWatch: true })
+  }
 }
 
 async function onUpgradeComplete({ resources }, upgrade) {
-  // if (upgrade === CHARGE) {
-  //   const { units, map, actions } = resources.get();
-  //   const combatUnits = units.getCombatUnits();
-  //   // get our enemy's bases...
-  //   const [enemyMain, enemyNat] = map.getExpansions(Alliance.ENEMY);
 
-  //   // queue up our army units to attack both bases (in reverse, natural first)
-  //   return Promise.all([enemyNat, enemyMain].map((expansion) => {
-  //     return actions.attackMove(combatUnits, expansion.townhallPosition, true);
-  //   }));
-  // }
 }
 
 async function buildComplete() {
@@ -258,6 +255,12 @@ async function onUnitDamaged({ agent, resources }, unit) {
       const workers = unit.getWorkers()
       console.log('HOLD THE DOOR')
       return actions.attackMove([...combatUnits, ...workers], unit.pos, true)
+    } else if (this.state.forTheWatch) {
+      const bitches = getLeftoverBitches()
+      if (bitches.length > 0) {
+        console.log('Bitches FTW: ', bitches)
+        return actions.attackMove(bitches, unit.pos, true)
+      }
     }
 }
 

@@ -34,7 +34,6 @@ async function onUnitFinished({ resources }, newBuilding) {
 
 async function onGameStart({ agent, resources }) { 
   console.log(`Odin. Guide our ships!`)
-  console.log(typeof agent.pauseBuild)
   enemyMainPos = resources.get().map.getEnemyMain().townhallPosition
   console.log(JSON.stringify(enemyMainPos))
   // SystemObject
