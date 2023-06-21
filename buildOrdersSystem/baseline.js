@@ -17,10 +17,10 @@ const buildOrder = [
   [14, train(PROBE)],
   [15, build(GATEWAY)],
   [16, train(PROBE, 4)],
-  [16, build(ASSIMILATOR)],
-  [18, build(FORGE)],
+  [17, build(ASSIMILATOR)],
+  [18, build(NEXUS)],
+  [19, build(FORGE)],
   [20, build(CYBERNETICSCORE)],
-  [17, build(NEXUS)],
   [19, build(ASSIMILATOR)],
   [21, build(ROBOTICSFACILITY)],
   [22, build(GATEWAY)],
@@ -55,14 +55,6 @@ const wishList = []
 
 const getNumeros = ({ minerals, vespene, foodCap, foodUsed, foodArmy, foodWorkers, idleWorkerCount, armyCount, warpGateCount, larvaCount }) => {
   return { minerals, vespene, foodCap, foodUsed, foodArmy, foodWorkers, idleWorkerCount, armyCount, warpGateCount, larvaCount }
-}
-
-const repeat = (item, times) => {
-	let rslt = [];
-	for (let i = 0; i < times; i++) {
-  	rslt.push(item)
-  }
-  return rslt;
 }
 
 // bases that need workers

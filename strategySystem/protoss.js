@@ -1,14 +1,17 @@
 // @ts-check
-const { createSystem, taskFunctions } = require('@node-sc2/core');
-const { Alliance } = require('@node-sc2/core/constants/enums');
+
 const { GATEWAY, NEXUS, ROBOTICSFACILITY, CYBERNETICSCORE, ROBOTICSBAY, STARGATE, ZEALOT, STALKER, COLOSSUS, IMMORTAL } = require('@node-sc2/core/constants/unit-type');
 const { EFFECT_CHRONOBOOSTENERGYCOST } = require('@node-sc2/core/constants/ability');
+const { INTERCEPTOR } = require('@node-sc2/core/constants/unit-type');
 const { PROTOSSGROUNDWEAPONSLEVEL1, PROTOSSSHIELDSLEVEL1, PROTOSSGROUNDARMORSLEVEL1,
   PROTOSSGROUNDWEAPONSLEVEL2, PROTOSSSHIELDSLEVEL2, PROTOSSGROUNDARMORSLEVEL2,
   PROTOSSGROUNDWEAPONSLEVEL3, PROTOSSSHIELDSLEVEL3, PROTOSSGROUNDARMORSLEVEL3, EXTENDEDTHERMALLANCE,
   PROTOSSAIRWEAPONSLEVEL1, PROTOSSAIRWEAPONSLEVEL2, PROTOSSAIRWEAPONSLEVEL3, CHARGE, 
   PROTOSSAIRARMORSLEVEL1, PROTOSSAIRARMORSLEVEL2, PROTOSSAIRARMORSLEVEL3,
  } = require('@node-sc2/core/constants/upgrade');
+ const { Alliance } = require('@node-sc2/core/constants/enums');
+ const { createSystem, taskFunctions } = require('@node-sc2/core');
+const { areEqual, distance, getNeighbors } = require('@node-sc2/core/utils/geometry/point');
 
 const { build, upgrade, ability } = taskFunctions;
 
@@ -41,6 +44,8 @@ const defaultOptions = {
   },
 }
 
+let myMainBasePos = {}
+
 function canTrain(unitID, agent) {
   return agent.canAfford(unitID) && agent.hasTechFor(unitID)
   // const gotSpace = agent.foodCap - agent.foodUsed - 4; // T.T
@@ -52,6 +57,7 @@ async function onUnitFinished({ resources }, newBuilding) {
 
 async function onGameStart({ resources }) { 
   console.log(`onGameStart in protoss`)
+  myMainBasePos = resources.get().map.getMain().townhallPosition
 }
 
 async function onStep({ agent, data, resources }) {
@@ -169,6 +175,13 @@ async function onUpgradeComplete({ resources }, newUpgrade) {
   
 }
 
+async function onUnitDamaged({ resources }, unit) {
+  if (!unit.isCombatUnit() && unit.alliance === Alliance.SELF && unit.unitType !== INTERCEPTOR) {
+    const { actions } = resources.get()
+    return actions.move(unit, myMainBasePos)
+  }
+}
+
 async function buildComplete() {
   console.log('buildCompleted on protoss')
 }
@@ -185,5 +198,6 @@ module.exports = createSystem({
     onUpgradeComplete,
     buildComplete,
     onUnitDestroyed,
+    onUnitDamaged,
     onEnemyFirstSeen
 });

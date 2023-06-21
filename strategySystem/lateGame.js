@@ -118,10 +118,6 @@ async function onStep(world) {
   }
 }
 
-async function onLameGame(world) {
-
-}
-
 async function onUnitDestroyed({ agent, resources }, destroyedUnit) {
   const { actions, units, map } = resources.get()
   if (destroyedUnit.isTownhall() && destroyedUnit.isEnemy()) {

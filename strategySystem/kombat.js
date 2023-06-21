@@ -1,11 +1,11 @@
 // @ts-check
 const { createSystem, taskFunctions } = require('@node-sc2/core');
 const { Alliance } = require('@node-sc2/core/constants/enums');
-const { areEqual, distance } = require('@node-sc2/core/utils/geometry/point');
-const { STARGATE, OBSERVER, VOIDRAY, CARRIER, ROBOTICSFACILITY, INTERCEPTOR } = require('@node-sc2/core/constants/unit-type');
-const { getBuildingPlacement } = require('../helpers/placement');
+const { areEqual, distance, getNeighbors } = require('@node-sc2/core/utils/geometry/point');
+const { INTERCEPTOR } = require('@node-sc2/core/constants/unit-type');
 
-const MAX_RESERVE_SIZE = 28
+const MAX_ARMY_SIZE = 28
+const INITIAL_ARMY_SIZE = 13
 const CHASE_DISTANCE = 25
 
 // export interface Weapon {
@@ -46,23 +46,16 @@ const getUnitData = ({shield, health, unitType, engagedTargetTag, noQueue}) => {
 
 }
 
-function split(array, n, res = []) {
-  if(array.length > 0) {
-    res.push(array.splice(0, n))
-    return split(array, n, res)
-  }
-  return res
-}
-
 const defaultOptions = {
   state: {
-    army: {},
-    armyUnits: {}
+    armySize: INITIAL_ARMY_SIZE,
+    army: [],
+    unitTypes: {}
   }
 }
 
 async function getMaggots() { 
-  return this.state.army.units.filter(u => u.noQueue)
+  return this.state.army.filter(u => u.noQueue)
 }
 
 async function onGameStart({ agent, resources }) { 
@@ -77,7 +70,7 @@ async function onStep({ agent, resources }) {
   const idleCombatUnits = units.getCombatUnits().filter(u => u.noQueue);
   if (idleCombatUnits.length > this.state.armySize || (agent.foodUsed > 190 && idleCombatUnits.length > 10)) {
     // add to our army size, so each attack is slightly larger
-    if (this.state.armySize < MAX_RESERVE_SIZE) {
+    if (this.state.armySize < MAX_ARMY_SIZE) {
       this.setState({ armySize: this.state.armySize + 4 });
     }
     const [enemyMain, enemyNat] = map.getExpansions(Alliance.ENEMY);
@@ -117,8 +110,8 @@ async function onEnemyFirstSeen({ agent, resources }, unit, unit2) {
 
 async function onUnitDamaged({ agent, resources }, unit) {
   if (!unit.isCombatUnit() && unit.alliance === Alliance.SELF && unit.unitType !== INTERCEPTOR) {
-    console.log('me atacaron a un perrito: ', unit.unitType)
     const maggots = await getMaggots()
+    console.log('me atacaron a un perrito: ', maggots.length)
     const { actions } = resources.get()
     if (maggots.length > 0) {
       return actions.attackMove(maggots, unit.pos, true)
@@ -153,7 +146,7 @@ async function onUnitCreated({ agent, resources, data }, newUnit) {
       }
     })
 
-    console.log(JSON.stringify({unitData}, null, 2))
+    // console.log(JSON.stringify({unitData}, null, 2))
     console.log('newUnit.tag: ', newUnit.tag)
     console.log('armyUnits: ', armyUnits.length)
   }
@@ -173,11 +166,6 @@ async function onUnitDestroyed({ agent, resources, data }, deadUnit, unit2) {
     if (this.state.unitTypes[deadUnit.unitType]) {
       count = this.state.unitTypes[deadUnit.unitType] - 1
     }
-
-  //   canShootUp() {
-  //     return this.data().weapons.some(w => w.type !== WeaponTargetType.GROUND);
-  // }
-  // getLife
 
     this.setState({
       army: armyUnits,
