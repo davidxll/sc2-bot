@@ -13,7 +13,7 @@ const engine = createEngine();
 engine.connect().then(() => {
     return engine.runGame('WaterfallAIE', [
         createPlayer({ race: Race.PROTOSS }, bot),
-        createPlayer({ race: Race.RANDOM, difficulty: Difficulty.HARD }),
+        createPlayer({ race: Race.RANDOM, difficulty: Difficulty.HARDER }),
     ]);
 });
 

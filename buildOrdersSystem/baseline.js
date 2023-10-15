@@ -6,12 +6,10 @@ const { Alliance } = require('@node-sc2/core/constants/enums');
 const { CANCEL_LAST, CANCEL_QUEUEPASIVE } = require('@node-sc2/core/constants/ability');
 const { ASSIMILATOR, CYBERNETICSCORE, FORGE, GATEWAY, NEXUS, TWILIGHTCOUNCIL, ROBOTICSBAY, ROBOTICSFACILITY,
   PROBE, FLEETBEACON } = require('@node-sc2/core/constants/unit-type');
-const { getTownhallPlacement } = require('../helpers/placement');
+const { getTownhallPlacement, getBuildingPlacement } = require('../helpers/placement');
 const { distance } = require('@node-sc2/core/utils/geometry/point');
 
 const { build, train, upgrade } = taskFunctions;
-
-const INITIAL_WORKERS_PER_BASE = 22
 
 const buildOrder = [
   [14, train(PROBE)],
@@ -43,15 +41,12 @@ const buildOrder = [
 
 const defaultOptions = {
   state: {
-    bitchesPerBase: INITIAL_WORKERS_PER_BASE,
     noMoreWorkersPls: false,
     expanseMode: false,
     needyGasMine: null,
     forTheWatch: false
   },
 }
-
-const wishList = []
 
 const getNumeros = ({ minerals, vespene, foodCap, foodUsed, foodArmy, foodWorkers, idleWorkerCount, armyCount, warpGateCount, larvaCount }) => {
   return { minerals, vespene, foodCap, foodUsed, foodArmy, foodWorkers, idleWorkerCount, armyCount, warpGateCount, larvaCount }
@@ -61,7 +56,7 @@ const getNumeros = ({ minerals, vespene, foodCap, foodUsed, foodArmy, foodWorker
 function getNeedyBases(ownBases) {
   let needyBases = [];
   ownBases.forEach(base => {
-    const diff = base.assignedHarvesters - base.idealHarvesters
+    const diff = base.idealHarvesters - base.assignedHarvesters
     if(diff > 0) {
       needyBases.push({diff, base})
     }
@@ -105,11 +100,6 @@ async function onUnitFinished({ resources }, newBuilding) {
     console.log('expanded!')
     await Promise.all(units.getMineralWorkers().map(bitch => actions.gather(bitch)))
   }
-  // const dirtyBitches = getBitchBitches(units.getBases(Alliance.SELF).filter(b => b.buildProgress >= 1), units.getMineralWorkers(), units)
-  // if (dirtyBitches.length > 0) {
-  //   console.log(`MOVILIZING ${dirtyBitches.length} bitches`)
-  //   return Promise.all(dirtyBitches.map(bitch => actions.gather(bitch)))
-  // }
 
 }
 
@@ -124,9 +114,9 @@ async function onUnitCreated({ agent, resources }, newUnit) {
   } else if (newUnit.isCombatUnit()) {
     await actions.attackMove(newUnit, map.getCombatRally());
   }
-
+  
   // other logic to do when a unit is created
-  const noMoreWorkersPls = miaBases.every(base => (base.assignedHarvesters >= base.idealHarvesters)  && base.buildProgress > 1)
+  const noMoreWorkersPls = miaBases.every(base => (base.assignedHarvesters >= base.idealHarvesters) && base.buildProgress >= 1)
   this.setState({ noMoreWorkersPls });
   
   // const needyBases = getNeedyBases(miaBases)
@@ -144,19 +134,10 @@ async function onUnitCreated({ agent, resources }, newUnit) {
     this.setState({needyGasMine: null})
   }
 
-  if (noMoreWorkersPls) {
-    console.log('Setting expanseMode ', true)
-    this.setState({ expanseMode: true })
-    if(foodCap > 50 && foodCap < 100) {
-      console.log('set bitchesPerBase to 20')
-      this.setState({ bitchesPerBase: 20 })
-    } else if(foodCap > 100 && foodCap < 150) {
-      console.log('set bitchesPerBase to 16')
-      this.setState({ bitchesPerBase: 16 })
-    } else if(foodCap > 150) {
-      console.log('set bitchesPerBase to 14')
-      this.setState({ bitchesPerBase: 14 })
-    }
+  const dirtyBitches = getLeftoverBitches(units.getBases(Alliance.SELF).filter(b => b.buildProgress >= 1), units.getMineralWorkers(), units)
+  if (dirtyBitches.length > 0) {
+    console.log(`MOVILIZING ${dirtyBitches.length} bitches`)
+    await Promise.all(dirtyBitches.map(bitch => actions.gather(bitch)))
   }
 }
 
@@ -171,23 +152,11 @@ async function onStep(world) {
   if (this.state.noMoreWorkersPls) {
     const basesTrainingBitch = units.getBases(Alliance.SELF).filter(b => b.abilityAvailable(CANCEL_QUEUEPASIVE)) // bases[0].abilityAvailable(207)
     await Promise.all(basesTrainingBitch.map(base => actions.do(CANCEL_QUEUEPASIVE, base)))
-  } else if (wishList.length > 0) {
-    console.log(`Why tho T.T - ${wishList.length}`)
-    const { unitId, production } = wishList[0]
-    try {
-      if (agent.canAfford(unitId) && agent.hasTechFor(unitId)) {
-        wishList.shift()
-        await actions.train(unitId, production)
-      }
-    } catch(err) {
-      console.log('fucking Daniel ', err.message)
-      return 'oka'
-    }
   }
   
   const needyBases = miaBases.filter(base => base.assignedHarvesters < base.idealHarvesters)
   
-  if (foodLeft > (needyBases.length * 2) && minerals > (needyBases.length * 50)) {
+  if (needyBases.length > 0 && foodLeft > (needyBases.length * 2) && minerals > (needyBases.length * 50)) {
     try {
       await Promise.all(needyBases.map(base => actions.train(PROBE, base)))
     } catch (err) {
@@ -206,14 +175,14 @@ async function onStep(world) {
   // do we need more gas stuff?
 
   // EXPANSE
-  if (this.state.expanseMode) {
+  if (this.state.noMoreWorkersPls) {
     const placement = await getTownhallPlacement(world, NEXUS)
+    // debug aqui
     if (placement) {
-      console.log('expansing!')
       await actions.build(NEXUS, placement)
     }
-    // NEXUS
   }
+
   if (foodUsed > 101) {
     const geysers = units.getGasGeysers()
     map.getExpansions().forEach(({ pos }) => {
@@ -224,9 +193,19 @@ async function onStep(world) {
       }
     })
   }
+
   if (foodCap === 200 && !this.state.forTheWatch) {
     console.log('FOR THE WATCH')
     this.setState({ forTheWatch: true })
+  }
+
+  if (foodCap === 200 && minerals > 1000) {
+    console.log('more shit')
+    const placement = getBuildingPlacement(world, GATEWAY)
+    if (placement) {
+      console.log('happening!')
+      await actions.build(GATEWAY, placement)
+    }
   }
 }
 
@@ -243,10 +222,10 @@ async function onUnitDamaged({ agent, resources }, unit) {
   const { actions, units, map } = resources.get()
   const { foodArmy } = agent
     if (unit.isTownhall() && unit.alliance === Alliance.SELF && foodArmy < 8) {
-      const combatUnits = units.getCombatUnits()
+      const idleCombatUnits = units.getCombatUnits().filter(u => u.noQueue)
       const workers = unit.getWorkers()
       console.log('HOLD THE DOOR')
-      return actions.attackMove([...combatUnits, ...workers], unit.pos, true)
+      return actions.attackMove([...idleCombatUnits, ...workers], unit.pos, true)
     } else if (this.state.forTheWatch) {
       const bitches = getLeftoverBitches()
       if (bitches.length > 0) {

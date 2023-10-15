@@ -16,7 +16,8 @@ const { areEqual, distance, getNeighbors } = require('@node-sc2/core/utils/geome
 const { build, upgrade, ability } = taskFunctions;
 
 // money to save for upgrades and builds
-const INITIAL_TARGET_MONEY = 250
+const INITIAL_TARGET_MONEY = 200
+const POOR_MODE_RATIO = 8
 
 const buildOrder = [
   [1, upgrade(PROTOSSGROUNDWEAPONSLEVEL1)],
@@ -62,21 +63,22 @@ async function onGameStart({ resources }) {
 
 async function onStep({ agent, data, resources }) {
   const { units, actions, map } = resources.get();
-  const { minerals, vespene, foodArmy } = agent
+  const { minerals, vespene, foodArmy, foodCap, foodUsed } = agent
   
   const idleRoboticFac = units.getById(ROBOTICSFACILITY, { noQueue: true, buildProgress: 1 })[0];
   const idleGateway = units.getById(GATEWAY, { noQueue: true, buildProgress: 1 })[0];
   const thereStarGays = !!units.getById(STARGATE, { noQueue: true, buildProgress: 1 })[0];
-  const spaceLeft = agent.foodCap - agent.foodUsed
+  const spaceLeft = foodCap - foodUsed
+  const imRich = (minerals / vespene) < POOR_MODE_RATIO
 
   if (minerals < this.state.targetMoney && foodArmy > 10) {
     // console.log('for the watch')
     return null
   }
 
-  if (idleGateway && spaceLeft >= 4) {
+  if (idleGateway && spaceLeft >= 3) {
     try {
-      if (canTrain(STALKER, agent)) {
+      if (canTrain(STALKER, agent) && imRich) {
         console.log('training Stalker')
         await actions.train(STALKER, idleGateway);
       } else if (canTrain(ZEALOT, agent)) {
@@ -105,7 +107,7 @@ async function onStep({ agent, data, resources }) {
     }
   }
 
-  if (agent.foodCap > 150 && this.state.targetMoney === INITIAL_TARGET_MONEY) {
+  if (foodCap > 150 && this.state.targetMoney === INITIAL_TARGET_MONEY) {
     this.setState({ targetMoney: INITIAL_TARGET_MONEY * 2 })
   }
 

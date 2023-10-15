@@ -92,7 +92,7 @@ async function onStep(world) {
           console.log('building stargay')
           await actions.build(STARGATE, placement);
         } catch (err) {
-          console.log('coño stargay ', err.message)
+          // console.log('coño stargay ', err.message)
         }
       }
     }

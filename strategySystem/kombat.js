@@ -1,6 +1,6 @@
 // @ts-check
 const { createSystem, taskFunctions } = require('@node-sc2/core');
-const { Alliance } = require('@node-sc2/core/constants/enums');
+const { Alliance, WeaponTargetType } = require('@node-sc2/core/constants/enums');
 const { areEqual, distance, getNeighbors } = require('@node-sc2/core/utils/geometry/point');
 const { INTERCEPTOR } = require('@node-sc2/core/constants/unit-type');
 
@@ -40,7 +40,7 @@ const CHASE_DISTANCE = 25
 //   movementSpeed?: number;
 //   armor?: number;
 //   weapons?: Array<Weapon>;
-// }
+// } .radius ?
 
 const getUnitData = ({shield, health, unitType, engagedTargetTag, noQueue}) => {
 
@@ -50,7 +50,8 @@ const defaultOptions = {
   state: {
     armySize: INITIAL_ARMY_SIZE,
     army: [],
-    unitTypes: {}
+    unitTypes: {},
+    marching: false
   }
 }
 
@@ -68,17 +69,57 @@ async function onStep({ agent, resources }) {
   const { units, actions, map } = resources.get();
 
   const idleCombatUnits = units.getCombatUnits().filter(u => u.noQueue);
+  const [enemyMain, enemyNat] = map.getExpansions(Alliance.ENEMY);
   if (idleCombatUnits.length > this.state.armySize || (agent.foodUsed > 190 && idleCombatUnits.length > 10)) {
     // add to our army size, so each attack is slightly larger
     if (this.state.armySize < MAX_ARMY_SIZE) {
-      this.setState({ armySize: this.state.armySize + 4 });
+      this.setState({ armySize: this.state.armySize + 4, marching: true });
     }
-    const [enemyMain, enemyNat] = map.getExpansions(Alliance.ENEMY);
     
     return Promise.all([enemyNat, enemyMain].map((expansion) => {
       console.log('Attack!!')
       return actions.attackMove(idleCombatUnits, expansion.townhallPosition, true);
     }));
+  }
+
+  if (this.state.marching) {
+    const enemyMainPos = enemyMain.townhallPosition
+    const myMainPos = units.getBases(Alliance.SELF)[0].townhallPosition
+    let slowest = Infinity
+    let backestDist = Infinity
+    let frontestDist = Infinity
+    let backestUnit = {}
+    let frontestUnit = {}
+    const army = this.state.army
+    const unitTypes = this.state.unitTypes
+    for (let unitData of Object.values(unitTypes)) {
+      const { movementSpeed } = unitData
+      if (movementSpeed < slowest) {
+        slowest = movementSpeed
+      }
+    }
+    for (let unit of army) {
+      const { pos } = unit
+      const toBase = distance(pos, myMainPos)
+      const toEnemy = distance(pos, enemyMainPos)
+      if (toBase < backestDist) {
+        backestDist = toBase
+        backestUnit = unit
+      }
+      if (toEnemy < frontestDist) {
+        frontestDist = toEnemy
+        frontestUnit = unit
+      }
+    }
+    for (let unit of army) {
+      const { healthMax, health } = unit
+      if (unit.unitId !== backestUnit.unitId) {
+        await actions.attackMove(unit, backestUnit.pos, true);
+      }
+      if (healthMax > health) {
+        console.log('injured')
+      }
+    }
   }
 }
 
@@ -94,7 +135,7 @@ async function onUnitHasEngaged({ agent, resources }, unit, unit2) {
   // console.log(`onUnitHasEngaged in Kombat: ${typeof unit2} - ${unit.isCombatUnit()}`)
 }
 
-async function onEnemyFirstSeen({ agent, resources }, unit, unit2) { 
+async function onEnemyFirstSeen({ agent, resources }, unit, unit2) {
   // console.log(`onEnemyFirstSeen in Kombat: ${typeof unit2} - ${unit.isCombatUnit()}`)
   if(unit.getLife() < 100) {
     const better = this.state.army
@@ -116,6 +157,8 @@ async function onUnitDamaged({ agent, resources }, unit) {
     if (maggots.length > 0) {
       return actions.attackMove(maggots, unit.pos, true)
     }
+  } else if(unit.alliance === Alliance.SELF) {
+
   }
 }
 
@@ -171,7 +214,8 @@ async function onUnitDestroyed({ agent, resources, data }, deadUnit, unit2) {
       army: armyUnits,
       unitTypes: {
         [deadUnit.unitType]: { count }
-      }
+      },
+      marching: false
     })
     console.log('deadmanwalking: ', deadUnit.tag)
     console.log('armyUnits: ', armyUnits.length)
